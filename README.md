@@ -6,6 +6,8 @@ TUI for browsing Homebrew formulae you installed yourself (`brew leaves
 --installed-on-request`), with an extended detail panel, disk-usage
 summary, and a "how is this best served?" command cheat-sheet.
 
+![Demo](assets/demo.png)
+
 ## Run
 
 ```bash
