@@ -9,8 +9,8 @@ summary, and a "how is this best served?" command cheat-sheet.
 ## Run
 
 ```bash
-pip install -r requirements.txt
-python -m boozer
+uv sync
+uv run python -m boozer
 ```
 
 Demo without a real brew install:
