@@ -72,9 +72,8 @@ Examples come from a provider chain, tried in order until one answers
    (`~/.cache/boozer/examples/`); on a miss, asks a local
    [LM Studio](https://lmstudio.ai) model for 5-6 example commands and
    writes the result through to the cache.
-
-`TldrProvider` (fetching community [tldr-pages](https://github.com/tldr-pages/tldr)
-cheat sheets) is designed in `provider.py` but not implemented.
+3. **TldrProvider** (fetching community [tldr-pages](https://github.com/tldr-pages/tldr)
+cheat sheets) is designed in `provider.py` but **not implemented**.
 
 ### Enabling the LLM provider
 
@@ -101,43 +100,15 @@ Optional configuration:
 | `BOOZER_LM_STUDIO_TIMEOUT`          | `90` (seconds)                      | generation timeout — raise for slower/larger models |
 | `BOOZER_CACHE_DIR`                  | `~/.cache/boozer/examples`            | where resolved examples are cached on disk   |
 
-### Reasoning ("thinking") models
+###  Reasoning ("thinking") models
 
-Some local models (Qwen3.5 and others with a chat template that supports
-an `enable_thinking` toggle) reason internally before writing a final
-answer — useful for hard problems, actively counterproductive for "give
-me 6 JSON objects": the model can burn its whole token budget on
-chain-of-thought and never get to writing the answer, leaving `content`
-empty (`finish_reason: "length"`).
+Some local models (e.g. Qwen3.5) can reason internally before answering. This helps with complex tasks but can waste the token budget on simple requests like "give me 6 JSON objects", leaving content empty with finish_reason: "length".
 
-boozer disables thinking by default, by sending
-`chat_template_kwargs: {"enable_thinking": false}` on every request —
-not just hoping there's enough budget for the model to reason *and*
-answer, but skipping the reasoning phase entirely. This only takes
-effect on chat templates that support the variable (Qwen3.5 does;
-others may simply ignore it). If you want reasoning anyway, set
-`BOOZER_LM_STUDIO_THINKING=1` — note that if the model then exhausts
-`BOOZER_LM_STUDIO_MAX_TOKENS` while still reasoning, boozer treats that
-as "no examples" rather than guessing from a partial chain-of-thought
-(`reasoning_content` is deliberately never used as a source of the
-actual answer).
+boozer disables thinking by default via chat_template_kwargs: {"enable_thinking": false}. This works only with templates supporting the option (Qwen3.5 does). To enable reasoning, set BOOZER_LM_STUDIO_THINKING=1. If the model exhausts BOOZER_LM_STUDIO_MAX_TOKENS while reasoning, boozer returns "no examples" rather than using partial reasoning_content.
 
-### How it behaves
-
-- **Curated formulae never touch the network.** The LLM provider is
-  only reached if nothing curated matches.
-- **Fails fast when LM Studio isn't running** — a quick TCP reachability
-  check (~1.5s) before attempting generation, rather than waiting out a
-  long timeout every time.
-- **Never blocks the UI.** Examples are only fetched when you actually
-  open the panel (press `a`), and always in a background worker — the
-  panel shows "Looking that up…" while a request is in flight, and you
-  can keep navigating the list in the meantime.
-- **Cached per (formula, version)** — a formula is only ever sent to
-  the model once; subsequent lookups (including after a `brew upgrade`,
-  since the version is part of the cache key) come straight from disk.
-- **Tolerant of messy model output** — local models often wrap JSON in
-  ` ```json ` fences or add a stray sentence despite instructions not
-  to; the response is parsed by extracting the first `[...]` block
-  rather than requiring an exact match. Malformed output degrades to
-  "no examples", never a crash.
+###  How it behaves
+Curated formulae never use the network. The LLM is queried only when no curated match exists.
+Fails fast if LM Studio is unavailable with a ~1.5s TCP check instead of waiting for a long timeout.
+Never blocks the UI. Examples load only when you open the panel (a) and run in the background; you can keep navigating.
+Cached per (formula, version). Each formula is sent to the model only once. The cache also invalidates after brew upgrade.
+Tolerates messy output. JSON wrapped in Markdown fences or extra text is handled by extracting the first [...] block. Invalid output becomes "no examples" rather than a crash.
