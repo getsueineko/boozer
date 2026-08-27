@@ -98,7 +98,8 @@ def get_info(leaf_names: list[str]) -> list[Formula]:
                 item = corrected
 
         installed = item.get("installed") or [{}]
-        version = installed[0].get("version") or item.get("versions", {}).get("stable", "")
+        stable_version = item.get("versions", {}).get("stable", "") or ""
+        version = installed[0].get("version") or stable_version
 
         raw_deps = item.get("dependencies") or []
         raw_build_deps = item.get("build_dependencies") or []
@@ -110,6 +111,7 @@ def get_info(leaf_names: list[str]) -> list[Formula]:
                 desc=item.get("desc") or "(no description)",
                 homepage=item.get("homepage") or "",
                 version=version,
+                latest_version=stable_version,
                 license=item.get("license") or "Unknown",
                 tap=item.get("tap") or "unknown",
                 caveats=(item.get("caveats") or "").strip(),

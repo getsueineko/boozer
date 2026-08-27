@@ -34,6 +34,45 @@ SIZES: dict[str, str] = {
 TOTAL_INSTALLED_SIZE = "1.2 GB"
 CACHE_SIZE = "3.8 GB"
 
+# --installed --help output for formulae that have no curated examples
+# (see curated.py) and LLM examples are off by default — demonstrates
+# the "--help" fallback in the examples panel.
+HELP_TEXT: dict[str, str] = {
+    "flux": (
+        "Command line utility for assembling Flux GitOps content.\n\n"
+        "Usage:\n  flux [command]\n\n"
+        "Available Commands:\n"
+        "  bootstrap   Bootstrap toolkit components\n"
+        "  get         Get sources and resources\n"
+        "  reconcile   Reconcile sources and resources\n"
+        "  suspend     Suspend sources and resources\n\n"
+        'Use "flux [command] --help" for more information about a command.'
+    ),
+    "deno": (
+        "deno 2.9.5\n"
+        "A modern JavaScript and TypeScript runtime\n\n"
+        "Usage: deno [OPTIONS] [COMMAND]\n\n"
+        "Commands:\n"
+        "  run       Run a JavaScript or TypeScript program\n"
+        "  test      Run tests\n"
+        "  fmt       Format source files\n"
+        "  compile   Compile a program to a standalone binary\n\n"
+        "Options:\n"
+        "  -h, --help     Print help\n"
+        "  -V, --version  Print version"
+    ),
+}
+
+# name -> (installed_version, latest_version). Only formulae that
+# should demo something other than "up to date" need an entry here —
+# everything else defaults to matching versions (see info_json below).
+VERSION_OVERRIDES: dict[str, tuple[str, str]] = {
+    "ffmpeg": ("8.0", "8.0"),
+    "deno": ("2.9.5", "2.9.5"),
+    # Demonstrates the "EXPIRED" banner: newer version available.
+    "wget": ("1.24.5", "1.25.0"),
+}
+
 
 def info_json() -> dict:
     now = datetime(2026, 8, 8, tzinfo=timezone.utc).timestamp()
@@ -66,7 +105,7 @@ def info_json() -> dict:
     }
     formulae = []
     for name, (desc, home, full_name, license_, tap, deps, build_deps, conflicts, installs_90d) in data.items():
-        version = {"ffmpeg": "8.0", "deno": "2.9.5"}.get(name, "1.0.0")
+        installed_version, stable_version = VERSION_OVERRIDES.get(name, ("1.0.0", "1.0.0"))
         entry = {
             "name": name,
             "full_name": full_name,
@@ -74,8 +113,8 @@ def info_json() -> dict:
             "homepage": home,
             "license": license_,
             "tap": tap,
-            "versions": {"stable": version},
-            "installed": [{"version": version, "time": int(now) if name == "deno" else None}],
+            "versions": {"stable": stable_version},
+            "installed": [{"version": installed_version, "time": int(now) if name == "deno" else None}],
             "caveats": None,
             "dependencies": deps,
             "build_dependencies": build_deps,

@@ -21,6 +21,7 @@ class Formula:
     desc: str = ""
     homepage: str = ""
     version: str = ""
+    latest_version: str = ""
     license: str = ""
     tap: str = ""
     caveats: str = ""
@@ -39,3 +40,11 @@ class Formula:
     def display_name(self) -> str:
         """Show the tap for non-core formulae, e.g. fluxcd/tap/flux."""
         return self.full_name if self.full_name and "/" in self.full_name else self.name
+
+    @property
+    def is_outdated(self) -> bool:
+        """True if a newer version than what's installed is known to
+        exist. `latest_version` comes from `versions.stable` in `brew
+        info` — the formula definition's current version, independent
+        of what's actually installed."""
+        return bool(self.latest_version) and self.latest_version != self.version

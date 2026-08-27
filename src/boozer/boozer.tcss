@@ -101,6 +101,18 @@ Footer > .footer-key--description {
     margin-top: 1;
 }
 
+#expired {
+    border: round #ffb000;
+    color: #ffb000;
+    padding: 0 1;
+    height: auto;
+    margin-bottom: 1;
+    display: none;
+}
+#expired.visible {
+    display: block;
+}
+
 #detail {
     border: round #2ecc71;
     padding: 1 2;

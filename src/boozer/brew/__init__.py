@@ -8,8 +8,10 @@ at all — the public surface is just:
     get_installed_size(name) -> str
     get_total_installed_size() -> str
     get_homebrew_cache_size() -> str
+    get_help_text(name) -> str | None
 """
 
+from .help import get_help_text
 from .info import get_info
 from .queries import (
     get_homebrew_cache_size,
@@ -24,4 +26,5 @@ __all__ = [
     "get_installed_size",
     "get_total_installed_size",
     "get_homebrew_cache_size",
+    "get_help_text",
 ]

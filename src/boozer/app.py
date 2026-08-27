@@ -7,6 +7,7 @@ no example-lookup logic — both live in their own packages.
 from __future__ import annotations
 
 import os
+from typing import NamedTuple
 
 from textual.app import App, ComposeResult
 from textual.containers import Horizontal, Vertical
@@ -17,7 +18,15 @@ from . import brew
 from .examples import Example, get_examples
 from .models import Formula
 from .theme import CHEVRON
-from .widgets import DetailPanel, ExamplesPanel, WeightPanel
+from .widgets import DetailPanel, ExamplesPanel, ExpiredPanel, WeightPanel
+
+
+class ExamplesResult(NamedTuple):
+    """Either curated/LLM examples, live `--help` output, or neither —
+    the panel renders whichever one is populated."""
+
+    examples: list[Example] | None
+    help_text: str | None
 
 
 class Boozer(App):
@@ -40,10 +49,9 @@ class Boozer(App):
         super().__init__()
         self.all_formulae: list[Formula] = []
         self.size_cache: dict[str, str] = {}
-        # A name present in this dict (even mapped to None) means "already
-        # looked up" — distinct from "not fetched yet". None is a valid,
-        # cached answer: "checked, there genuinely are no examples".
-        self.examples_cache: dict[str, list[Example] | None] = {}
+        # A name present in this dict means "already looked up" —
+        # distinct from "not fetched yet".
+        self.examples_cache: dict[str, ExamplesResult] = {}
         self._current_formula: Formula | None = None
 
     def compose(self) -> ComposeResult:
@@ -56,6 +64,7 @@ class Boozer(App):
                     yield ListView(id="list")
                 yield WeightPanel(id="weight")
             with Vertical(id="right-col"):
+                yield ExpiredPanel(id="expired")
                 yield DetailPanel(id="detail")
                 yield ExamplesPanel(id="examples")
         yield Footer()
@@ -141,10 +150,12 @@ class Boozer(App):
     def _select(self, formula: Formula | None) -> None:
         self._current_formula = formula
 
+        expired = self.query_one("#expired", ExpiredPanel)
+        expired.show(formula)
+
         detail = self.query_one("#detail", DetailPanel)
         if formula is None:
             detail.show(None, "")
-            self.query_one("#examples", ExamplesPanel).show_examples(None)
             return
 
         cached_size = self.size_cache.get(formula.name)
@@ -157,9 +168,9 @@ class Boozer(App):
             )
 
         # Examples are looked up lazily: only fetch (and only ever hit
-        # the network) if the panel is actually visible right now.
-        # Navigating the list with the panel closed should never trigger
-        # an LLM call.
+        # the network or spawn --help) if the panel is actually visible
+        # right now. Navigating the list with the panel closed should
+        # never trigger an LLM call or a subprocess.
         examples_panel = self.query_one("#examples", ExamplesPanel)
         if examples_panel.has_class("visible"):
             self._show_examples_for(formula)
@@ -174,13 +185,15 @@ class Boozer(App):
             self.query_one("#detail", DetailPanel).show(self._current_formula, size)
 
     def _show_examples_for(self, formula: Formula) -> None:
-        """Show cached examples immediately, or a loading placeholder
-        plus a background fetch. Never calls get_examples() on the UI
-        thread — a lookup can be a network round-trip to a local LLM
-        with a timeout of up to ~45s (see boozer/examples/llm.py)."""
+        """Show a cached result immediately, or a loading placeholder
+        plus a background fetch. Never calls get_examples() or
+        get_help_text() on the UI thread — a lookup can be a network
+        round-trip to a local LLM (see boozer/examples/llm.py) or a
+        subprocess call that could hang on a misbehaving binary."""
         panel = self.query_one("#examples", ExamplesPanel)
-        if formula.name in self.examples_cache:
-            panel.show_examples(self.examples_cache[formula.name])
+        cached = self.examples_cache.get(formula.name)
+        if cached is not None:
+            self._render_examples_result(panel, formula.name, cached)
             return
         panel.show_loading()
         self.run_worker(
@@ -191,17 +204,29 @@ class Boozer(App):
 
     def _fetch_examples(self, formula: Formula) -> None:
         examples = get_examples(formula)
-        self.call_from_thread(self._on_examples_ready, formula.name, examples)
+        help_text = None
+        if not examples:
+            # Default fallback: every well-behaved CLI tool answers
+            # --help, and unlike curated/LLM examples this describes
+            # whatever is *actually* installed, not a guess.
+            help_text = brew.get_help_text(formula.name)
+        result = ExamplesResult(examples=examples, help_text=help_text)
+        self.call_from_thread(self._on_examples_result, formula.name, result)
 
-    def _on_examples_ready(self, name: str, examples: list[Example] | None) -> None:
-        self.examples_cache[name] = examples
-        panel = self.query_one("#examples", ExamplesPanel)
-        if (
-            self._current_formula is not None
-            and self._current_formula.name == name
-            and panel.has_class("visible")
-        ):
-            panel.show_examples(examples)
+    def _on_examples_result(self, name: str, result: ExamplesResult) -> None:
+        self.examples_cache[name] = result
+        if self._current_formula is not None and self._current_formula.name == name:
+            panel = self.query_one("#examples", ExamplesPanel)
+            if panel.has_class("visible"):
+                self._render_examples_result(panel, name, result)
+
+    def _render_examples_result(self, panel: ExamplesPanel, name: str, result: ExamplesResult) -> None:
+        if result.examples:
+            panel.show_examples(result.examples)
+        elif result.help_text:
+            panel.show_help_text(name, result.help_text)
+        else:
+            panel.show_unavailable(name)
 
     # -- events ---------------------------------------------------------------
 
