@@ -73,6 +73,11 @@ Footer > .footer-key--description {
     background: #020402;
     border: none;
     height: 1fr;
+    scrollbar-size-vertical: 1;
+    scrollbar-color: #2ecc71;
+    scrollbar-color-hover: #39ff6a;
+    scrollbar-color-active: #39ff6a;
+    scrollbar-background: #020402;    
 }
 #list-box ListItem {
     padding: 0 1;
@@ -120,6 +125,7 @@ Footer > .footer-key--description {
     overflow-y: auto;
     border-title-color: #39ff6a;
     border-title-style: bold;
+    scrollbar-size-vertical: 1;
     scrollbar-color: #2ecc71;
     scrollbar-color-hover: #39ff6a;
     scrollbar-color-active: #39ff6a;
@@ -136,6 +142,7 @@ Footer > .footer-key--description {
     overflow-y: auto;
     border-title-color: #39ff6a;
     border-title-style: bold;
+    scrollbar-size-vertical: 1;
     scrollbar-color: #2ecc71;
     scrollbar-color-hover: #39ff6a;
     scrollbar-color-active: #39ff6a;
