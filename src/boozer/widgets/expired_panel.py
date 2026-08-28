@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from textual.widgets import Static
 
+from ..markup import escape
 from ..models import Formula
 
 
@@ -21,7 +22,7 @@ class ExpiredPanel(Static):
             self.remove_class("visible")
             return
         self.update(
-            f"⚠ Newer version available: [bold]{formula.latest_version}[/bold] "
-            f"(installed: {formula.version})"
+            f"⚠ Newer version available: [bold]{escape(formula.latest_version)}[/bold] "
+            f"(installed: {escape(formula.version)})"
         )
         self.add_class("visible")

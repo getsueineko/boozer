@@ -120,6 +120,10 @@ Footer > .footer-key--description {
     overflow-y: auto;
     border-title-color: #39ff6a;
     border-title-style: bold;
+    scrollbar-color: #2ecc71;
+    scrollbar-color-hover: #39ff6a;
+    scrollbar-color-active: #39ff6a;
+    scrollbar-background: #020402;
 }
 
 #examples {
@@ -129,8 +133,13 @@ Footer > .footer-key--description {
     max-height: 40%;
     margin-top: 1;
     display: none;
+    overflow-y: auto;
     border-title-color: #39ff6a;
     border-title-style: bold;
+    scrollbar-color: #2ecc71;
+    scrollbar-color-hover: #39ff6a;
+    scrollbar-color-active: #39ff6a;
+    scrollbar-background: #020402;
 }
 #examples.visible {
     display: block;

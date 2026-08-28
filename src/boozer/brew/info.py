@@ -32,7 +32,10 @@ def _installed_date(item: dict) -> str:
         installed = item.get("installed") or []
         if not installed:
             return ""
-        ts = installed[0].get("time")
+        # See the comment in get_info() — the currently active version
+        # is the last entry, not the first, when an old version hasn't
+        # been cleaned up.
+        ts = installed[-1].get("time")
         if not ts:
             return ""
         return datetime.fromtimestamp(int(ts), tz=timezone.utc).strftime("%Y-%m-%d")
@@ -97,9 +100,17 @@ def get_info(leaf_names: list[str]) -> list[Formula]:
             if corrected is not None:
                 item = corrected
 
+        # `installed` can have more than one entry if an old version
+        # hasn't been cleaned up after `brew upgrade` (Homebrew doesn't
+        # always auto-cleanup). Entries are listed oldest-first, so the
+        # currently active version — the one actually in use — is the
+        # LAST one, not the first. Reading installed[0] here would keep
+        # showing a stale version (and a stuck EXPIRED banner) even
+        # right after upgrading.
         installed = item.get("installed") or [{}]
+        current_install = installed[-1]
         stable_version = item.get("versions", {}).get("stable", "") or ""
-        version = installed[0].get("version") or stable_version
+        version = current_install.get("version") or stable_version
 
         raw_deps = item.get("dependencies") or []
         raw_build_deps = item.get("build_dependencies") or []

@@ -8,7 +8,21 @@ module is what both of those talk *through*.
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass, field
+
+# Homebrew appends "_N" to a formula's version string when there's a
+# "revision" bump — a rebuild triggered by e.g. a dependency's ABI
+# changing, with no change to the upstream version itself (see `brew
+# info`'s `revision` field). `installed[].version` includes this
+# suffix; `versions.stable` never does. Comparing the two directly
+# would treat "0.2.2" and "0.2.2_1" as different versions when they're
+# the same upstream release — strip the suffix before comparing.
+_REVISION_SUFFIX = re.compile(r"_\d+$")
+
+
+def _without_revision(version: str) -> str:
+    return _REVISION_SUFFIX.sub("", version)
 
 
 @dataclass
@@ -46,5 +60,10 @@ class Formula:
         """True if a newer version than what's installed is known to
         exist. `latest_version` comes from `versions.stable` in `brew
         info` — the formula definition's current version, independent
-        of what's actually installed."""
-        return bool(self.latest_version) and self.latest_version != self.version
+        of what's actually installed. Compares with revision suffixes
+        stripped (see _without_revision) so e.g. installed "0.2.2_1"
+        against stable "0.2.2" is correctly NOT outdated — same
+        release, just rebuilt."""
+        if not self.latest_version:
+            return False
+        return _without_revision(self.latest_version) != _without_revision(self.version)

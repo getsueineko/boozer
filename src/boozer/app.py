@@ -110,8 +110,7 @@ class Boozer(App):
 
     def _on_error(self, message: str) -> None:
         self._set_header(error=True)
-        detail = self.query_one("#detail", DetailPanel)
-        detail.update(f"[bold red]Error:[/] {message}")
+        self.query_one("#detail", DetailPanel).show_error(message)
 
     def _on_loaded(self, formulae: list[Formula]) -> None:
         self.all_formulae = formulae
@@ -182,7 +181,10 @@ class Boozer(App):
     def _on_size_ready(self, name: str, size: str) -> None:
         self.size_cache[name] = size
         if self._current_formula is not None and self._current_formula.name == name:
-            self.query_one("#detail", DetailPanel).show(self._current_formula, size)
+            # reset_scroll=False: this only updates the Size line once
+            # the background lookup finishes — it shouldn't yank the
+            # user back to the top if they've already scrolled down.
+            self.query_one("#detail", DetailPanel).show(self._current_formula, size, reset_scroll=False)
 
     def _show_examples_for(self, formula: Formula) -> None:
         """Show a cached result immediately, or a loading placeholder
@@ -248,8 +250,15 @@ class Boozer(App):
     def action_toggle_examples(self) -> None:
         panel = self.query_one("#examples", ExamplesPanel)
         panel.toggle_class("visible")
-        if panel.has_class("visible") and self._current_formula is not None:
-            self._show_examples_for(self._current_formula)
+        if panel.has_class("visible"):
+            if self._current_formula is not None:
+                self._show_examples_for(self._current_formula)
+            # Focus it so arrow keys / PageUp / PageDown / Home / End
+            # scroll the panel right away, no extra Tab/click needed.
+            # `esc` already returns focus to the list (action_focus_list).
+            panel.focus()
+        else:
+            self.query_one("#list", ListView).focus()
 
 
 def main() -> None:
