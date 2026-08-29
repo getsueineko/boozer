@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from textual.widgets import Static
 
-from ..markup import escape
+from ..markup import styled
 from ..models import Formula
 
 
@@ -21,8 +21,10 @@ class ExpiredPanel(Static):
         if formula is None or not formula.is_outdated:
             self.remove_class("visible")
             return
-        self.update(
-            f"⚠ Newer version available: [bold]{escape(formula.latest_version)}[/bold] "
-            f"(installed: {escape(formula.version)})"
-        )
+        result = styled("⚠ Newer version available: ")
+        result.append(formula.latest_version, style="bold")
+        result.append(" (installed: ")
+        result.append(formula.version)
+        result.append(")")
+        self.update(result)
         self.add_class("visible")

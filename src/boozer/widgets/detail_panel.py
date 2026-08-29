@@ -10,16 +10,35 @@ text no matter what overflow-y is set to. A formula with a long
 dependency/build-dependency list can easily exceed the panel's height,
 and VerticalScroll ships with the usual pager keybindings (arrows /
 PageUp / PageDown / Home / End) out of the box.
+
+Content is built as `rich.text.Text` via boozer.markup's plain()/
+styled(), not f-string markup: `desc`/`caveats`/dependency names come
+straight from `brew info` — free text a formula's maintainer wrote,
+not something boozer controls — and can contain literal brackets that
+reliably crash Rich's markup parser if run through it. See
+boozer/markup.py for why `rich.markup.escape()` alone doesn't fully
+solve this.
 """
 
 from __future__ import annotations
 
+from rich.text import Text
 from textual.containers import VerticalScroll
 from textual.widgets import Static
 
-from ..markup import escape
+from ..markup import plain, styled
 from ..models import Formula
 from ..theme import AMBER, GREEN_BRIGHT
+
+
+def _field(label: str, value: str) -> Text:
+    """`label` is always a short constant boozer writes itself (safe
+    for styled()); `value` is external brew data (must go through
+    plain())."""
+    result = styled(f"[bold]{label}:[/] ")
+    result.append_text(plain(value))
+    result.append("\n")
+    return result
 
 
 class DetailPanel(VerticalScroll):
@@ -37,7 +56,9 @@ class DetailPanel(VerticalScroll):
         yield Static(id="detail-content")
 
     def show_error(self, message: str) -> None:
-        self.query_one("#detail-content", Static).update(f"[bold red]Error:[/] {escape(message)}")
+        result = styled("[bold red]Error:[/] ")
+        result.append_text(plain(message))
+        self.query_one("#detail-content", Static).update(result)
         self.scroll_home(animate=False)
 
     def show(self, formula: Formula | None, size_text: str, *, reset_scroll: bool = True) -> None:
@@ -49,63 +70,75 @@ class DetailPanel(VerticalScroll):
                 self.scroll_home(animate=False)
             return
 
-        check = f"[{GREEN_BRIGHT}]✓[/]"
-        cross = f"[{AMBER}]✕[/]"
+        check = styled(f"[{GREEN_BRIGHT}]✓[/] ")
+        cross = styled(f"[{AMBER}]✕[/] ")
 
-        # Everything below except our own literal `[bold]`/`[dim]`/etc
-        # tags is data straight from `brew info` — desc, caveats, and
-        # dependency names are free text a formula's maintainer wrote,
-        # not something boozer controls, and can contain literal
-        # brackets that would otherwise crash Rich's markup parser
-        # (see boozer/markup.py). Escape all of it.
-        lines: list[str] = []
-        lines.append(f"[bold]{escape(formula.display_name)}[/]")
-        lines.append(escape(formula.desc))
-        lines.append("")
-        lines.append(f"[bold]Version:[/] {escape(formula.version)}")
-        lines.append(f"[bold]Tap:[/] {escape(formula.tap)}")
-        lines.append(f"[bold]Homepage:[/] [underline]{escape(formula.homepage)}[/]")
-        lines.append(f"[bold]License:[/] {escape(formula.license)}")
+        result = Text()
+        result.append(formula.display_name, style="bold")
+        result.append("\n")
+        result.append_text(plain(formula.desc))
+        result.append("\n\n")
+
+        result.append_text(_field("Version", formula.version))
+        result.append_text(_field("Tap", formula.tap))
+        result.append_text(styled("[bold]Homepage:[/] "))
+        result.append(formula.homepage, style="underline")
+        result.append("\n")
+        result.append_text(_field("License", formula.license))
         if formula.installs_90d is not None:
-            lines.append(f"[bold]Installs (90d):[/] {formula.installs_90d}")
+            result.append_text(styled(f"[bold]Installs (90d):[/] {formula.installs_90d}\n"))
 
-        lines.append("")
-        lines.append(f"[bold]Status:[/] {check} Installed")
-        lines.append(f"[bold]Size:[/] {escape(size_text)}")
+        result.append("\n")
+        result.append_text(styled("[bold]Status:[/] "))
+        result.append_text(check)
+        result.append("Installed\n")
+        result.append_text(_field("Size", size_text))
         if formula.installed_date:
-            lines.append(f"[bold]Installed on:[/] {formula.installed_date}")
+            result.append_text(styled(f"[bold]Installed on:[/] {formula.installed_date}\n"))
 
         if formula.conflicts:
-            lines.append("")
-            lines.append("[bold]Conflicts:[/]")
+            result.append("\n")
+            result.append_text(styled("[bold]Conflicts:[/]\n"))
             for c in formula.conflicts:
-                lines.append(f"  {cross} {escape(c)}")
+                result.append("  ")
+                result.append_text(cross)
+                result.append_text(plain(c))
+                result.append("\n")
 
-        lines.append("")
-        lines.append("[bold]Dependencies:[/]")
+        result.append("\n")
+        result.append_text(styled("[bold]Dependencies:[/]\n"))
         if formula.deps:
             for dep, ok in formula.deps:
-                lines.append(f"  {check if ok else cross} {escape(dep)}")
+                result.append("  ")
+                result.append_text(check if ok else cross)
+                result.append_text(plain(dep))
+                result.append("\n")
         else:
-            lines.append("  [dim](none)[/]")
+            result.append_text(styled("  [dim](none)[/]\n"))
 
         if formula.build_deps:
-            lines.append("")
-            lines.append("[bold]Build dependencies:[/]")
+            result.append("\n")
+            result.append_text(styled("[bold]Build dependencies:[/]\n"))
             for dep, ok in formula.build_deps:
-                lines.append(f"  {check if ok else cross} {escape(dep)}")
+                result.append("  ")
+                result.append_text(check if ok else cross)
+                result.append_text(plain(dep))
+                result.append("\n")
 
         if formula.required_by:
-            lines.append("")
-            lines.append("[bold]Required by:[/]")
+            result.append("\n")
+            result.append_text(styled("[bold]Required by:[/]\n"))
             for r in formula.required_by:
-                lines.append(f"  {check} {escape(r)}")
+                result.append("  ")
+                result.append_text(check)
+                result.append_text(plain(r))
+                result.append("\n")
 
         if formula.caveats:
-            lines.append("")
-            lines.append("[bold yellow]Caveats:[/]")
-            lines.append(escape(formula.caveats))
+            result.append("\n")
+            result.append_text(styled("[bold yellow]Caveats:[/]\n"))
+            result.append_text(plain(formula.caveats))
 
-        content.update("\n".join(lines))
+        content.update(result)
         if reset_scroll:
             self.scroll_home(animate=False)
